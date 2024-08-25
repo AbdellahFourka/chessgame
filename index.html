@@ -20,8 +20,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.11.0/chess.min.js"></script>
     <script>
         var board,
-            game = new Chess(),
-            stockfish = new Worker('stockfish-nnue-16.min.js');  // Use local file
+            game = new Chess();
 
         function onDragStart(source, piece, position, orientation) {
             if (game.in_checkmate() === true || game.in_draw() === true || piece.search(/^b/) !== -1) {
@@ -32,21 +31,69 @@
         function makeBestMove() {
             var difficulty = document.getElementById('ai-difficulty').value;
             var depth = difficulty === 'easy' ? 1 : difficulty === 'medium' ? 3 : 5;
+            
+            var bestMove = minimax(game, depth).move;
+            game.move(bestMove);
+            board.position(game.fen());
+        }
 
-            stockfish.postMessage('position fen ' + game.fen());
-            stockfish.postMessage('go depth ' + depth);
+        function minimax(game, depth) {
+            var possibleMoves = game.ugly_moves();
+            var bestMove = null;
+            var bestValue = -Infinity;
+            
+            for (var i = 0; i < possibleMoves.length; i++) {
+                var move = possibleMoves[i];
+                game.ugly_move(move);
+                var boardValue = -evaluateBoard(game.board(), depth - 1);
+                game.undo();
 
-            stockfish.onmessage = function (event) {
-                if (event && event.data && event.data.startsWith('bestmove')) {
-                    var bestMove = event.data.split(' ')[1];
-                    game.move({
-                        from: bestMove.substring(0, 2),
-                        to: bestMove.substring(2, 4),
-                        promotion: 'q'
-                    });
-                    board.position(game.fen());
+                if (boardValue > bestValue) {
+                    bestValue = boardValue;
+                    bestMove = move;
                 }
+            }
+            return { move: bestMove, value: bestValue };
+        }
+
+        function evaluateBoard(board, depth) {
+            if (depth === 0) return evaluatePosition(board);
+
+            var possibleMoves = game.ugly_moves();
+            var bestValue = -Infinity;
+
+            for (var i = 0; i < possibleMoves.length; i++) {
+                var move = possibleMoves[i];
+                game.ugly_move(move);
+                bestValue = Math.max(bestValue, -evaluateBoard(game.board(), depth - 1));
+                game.undo();
+            }
+            return bestValue;
+        }
+
+        function evaluatePosition(board) {
+            var totalEvaluation = 0;
+            for (var row = 0; row < 8; row++) {
+                for (var col = 0; col < 8; col++) {
+                    var piece = board[row][col];
+                    if (piece) {
+                        totalEvaluation += getPieceValue(piece);
+                    }
+                }
+            }
+            return totalEvaluation;
+        }
+
+        function getPieceValue(piece) {
+            var values = {
+                'p': 10,
+                'r': 50,
+                'n': 30,
+                'b': 30,
+                'q': 90,
+                'k': 900
             };
+            return values[piece.type] || 0;
         }
 
         function onDrop(source, target) {
