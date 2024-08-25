@@ -21,7 +21,7 @@
     <script>
         var board,
             game = new Chess(),
-            stockfish = new Worker('https://cdn.jsdelivr.net/npm/stockfish@11/stockfish.js');
+            stockfish = new Worker('https://cdn.jsdelivr.net/npm/stockfish@16.0.0/src/stockfish-nnue-16.min.js');
 
         function onDragStart(source, piece, position, orientation) {
             if (game.in_checkmate() === true || game.in_draw() === true || piece.search(/^b/) !== -1) {
